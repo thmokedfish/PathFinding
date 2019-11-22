@@ -14,11 +14,13 @@ public class TileManager : MonoBehaviour
     public Texture2D CloseTileTexture;
     public Texture2D BlankTileTexture;
     public Texture2D BlockTileTexture;
+    public Texture2D ResultTileTexture;
 
     Tile OpenTile;
     Tile CloseTile;
     Tile BlankTile;
     Tile BlockTile;
+    Tile ResultTile;
 
     float screenWidth;
     float screenHeight;
@@ -41,6 +43,7 @@ public class TileManager : MonoBehaviour
         CloseTile = InitTile(CloseTileTexture, cellSize);
         BlankTile = InitTile(BlankTileTexture,cellSize);
         BlockTile = InitTile(BlockTileTexture, cellSize);
+        ResultTile = InitTile(ResultTileTexture, cellSize);
     }
 
 
@@ -149,6 +152,8 @@ public class TileManager : MonoBehaviour
                 return CloseTile;
             case TileType.Open:
                 return OpenTile;
+            case TileType.Result:
+                return ResultTile;
             default:
                 return null;
         }

@@ -8,30 +8,39 @@ public class PathFinding : MonoBehaviour
     public Vector2Int startPos;
     public Vector2Int nextPos;
     public Vector2Int endPos;
-    public InputField widthField, heightField;
     public int width, height;
     public bool isFinding;
-    [Range(0, 0.5f)]
-    public float blockPercent;
+    float blockPercent { get { return BlockAmount.value; } }
     SingleGrid[,] grids;
     TileManager tileManager;
     private List<SingleGrid> OpenList = new List<SingleGrid>();
-    private List<SingleGrid> ClosedList = new List<SingleGrid>();
+    [Header("UI")]
+    public InputField widthField, heightField;
+    public Text CanNotFind;
+    public Toggle isRateChanged;
+    public Slider BlockAmount;
     private void Awake()
     {
         tileManager = this.GetComponent<TileManager>();
+        CanNotFind.gameObject.SetActive(false);
     }
 
     private void Update()
     {
-        if(!isFinding)
+        if (!isFinding)
         { return; }
-        for (int i=0; i < 10; i++)
+        int i = 19;
+        if (isRateChanged.isOn)
         {
-            if (OpenList.Count > 0)
-            {
-                step();
-            }
+            i = 0;
+        }
+        for (; i < 20; i++)
+        {
+            step();
+        }
+        if (OpenList.Count == 0)
+        {
+            CanNotFind.gameObject.SetActive(true);
         }
     }
     public void GenerateButton_OnClick()
@@ -61,12 +70,7 @@ public class PathFinding : MonoBehaviour
 
     void GenerateMap(int width,int height,float blockPercent) //m:width ; n:height
     {
-        endPos = new Vector2Int(width-1, height-1);
-        tileManager.InitCellsize(width, height);
-        grids=new SingleGrid[width, height];
-        OpenList.Clear();
-        ClosedList.Clear();
-        isFinding = false;
+        ResetMap();
 
         for(int i=0;i<width;i++)
         {
@@ -90,6 +94,7 @@ public class PathFinding : MonoBehaviour
         }
         grids[0, 0].isBlock = false;
         grids[0, 0].Assume = endPos.x + endPos.y;
+        grids[0, 0].FromStart = 0;
         //tileManager.Draw(0, 0, TileType.Open);
         AddIntoOpenList(grids[0, 0],grids[0,0]);
 
@@ -97,6 +102,15 @@ public class PathFinding : MonoBehaviour
         tileManager.Draw(width - 1, height - 1, TileType.Blank);
     }
 
+    void ResetMap()
+    {
+        endPos = new Vector2Int(width - 1, height - 1);
+        tileManager.InitCellsize(width, height);
+        grids = new SingleGrid[width, height];
+        OpenList.Clear();
+        isFinding = false;
+        CanNotFind.gameObject.SetActive(false);
+    }
     /*
     void step(int i,int j)//visit grids around it from a single step 
     {
@@ -116,8 +130,12 @@ public class PathFinding : MonoBehaviour
     */
     void step()//visit grids around it from a single step 
     {
+        if (OpenList.Count == 0)
+        {
+            isFinding = false;
+            return;
+        }
         SingleGrid grid = OpenList[OpenList.Count - 1];
-        Debug.Log("step"+grid.Position);
         if (grid.isBlock)
         {  return; }
         if (grid.isInClosedList)
@@ -131,15 +149,16 @@ public class PathFinding : MonoBehaviour
         visit(i, j + 1, grid);
         visit(i - 1, j,grid);
         visit(i, j - 1, grid);
-        ClosedList.Add(grid);
         tileManager.Draw(i, j, TileType.Close);
         grid.isInClosedList = true;
         grid.isInOpenList = false;
     }
 
-    void AddIntoOpenList(SingleGrid grid,SingleGrid parent)  //val从大到小排序(高优先级在最后)
+    void AddIntoOpenList(SingleGrid grid,SingleGrid parent)  //val从大到小排序(小即高优先级在最后)
     {
         int index = OpenList.Count-1;
+        grid.FromStart = parent.FromStart + 1;
+        
         for(;index>-1;index--)
         {
             if (grid.Val <=OpenList[index].Val)
@@ -147,8 +166,7 @@ public class PathFinding : MonoBehaviour
         }
         OpenList.Insert(index+1, grid);
         grid.isInOpenList = true;
-        grid.parentPos = parent.Position;
-        grid.FromStart = parent.FromStart + 1;
+        grid.parent = parent;
         tileManager.Draw(grid.Position.x, grid.Position.y, TileType.Open);
     }
 
@@ -162,12 +180,17 @@ public class PathFinding : MonoBehaviour
         {
             return;
         }
-        if(grids[i,j].Assume==0)
-        {
-            //reach end
-        }
-        if(grids[i,j].isBlock)
+        if (grids[i, j].isBlock)
         { return; }
+        //reach end
+        if (grids[i,j].Assume==0)
+        {
+            grids[i, j].parent = from;
+            isFinding = false;
+            StartCoroutine(callTraceBack(grids[i, j]));
+            //TraceBack(grids[i,j]);
+            return;
+        }
         if(grids[i,j].isInClosedList)
         { return; }
         if (grids[i,j].isInOpenList)
@@ -183,6 +206,27 @@ public class PathFinding : MonoBehaviour
             AddIntoOpenList(grids[i, j], from);
         }
     }
+
+    IEnumerator callTraceBack(SingleGrid grid)
+    {
+        yield return null;
+        TraceBack(grid);
+    }
+    void TraceBack(SingleGrid grid)
+    {
+        SingleGrid g = grid;
+        while(true)
+        {
+            tileManager.Draw(g.Position.x, g.Position.y, TileType.Result);
+            if(g.Position==new Vector2Int(0,0))
+            {
+                break;
+            }
+            g = g.parent;
+        }
+
+    }
+
     /*
     void AddIntoOpenList(SingleGrid grid,Vector2Int parentPos)
     {
@@ -198,7 +242,7 @@ public class PathFinding : MonoBehaviour
 
 public enum TileType
 {
-    Close,Open,Blank,Block
+    Close,Open,Blank,Block,Result
 }
 
 public class SingleGrid
@@ -212,5 +256,5 @@ public class SingleGrid
     public Vector2Int Position;
     //初加入openList时赋值,在openList中被访问时看情况更新
     public int FromStart;  
-    public Vector2Int parentPos; 
+    public SingleGrid parent; 
 }
