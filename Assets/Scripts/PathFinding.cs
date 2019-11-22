@@ -67,6 +67,18 @@ public class PathFinding : MonoBehaviour
     {
         isFinding = true;
     }
+    public void QuitButton_OnClick()
+    {
+#if UNITY_EDITOR
+
+        UnityEditor.EditorApplication.isPlaying = false;
+
+#else
+
+            Application.Quit();
+
+#endif
+    }
 
     void GenerateMap(int width,int height,float blockPercent) //m:width ; n:height
     {
